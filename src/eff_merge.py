@@ -64,7 +64,8 @@ def ft_average(w1_ft, w2_ft):
 
 def merge_blocks(block1_ft, block2_ft, merged_block, 
                  block1_pt, block2_pt,
-                 merge_matrix, merge_vector):
+                 merge_matrix, merge_vector,
+                 k=2, whitening=True):
 
     for (name, w_merged) in merged_block.named_parameters():
         
@@ -74,16 +75,16 @@ def merge_blocks(block1_ft, block2_ft, merged_block,
         w2_pt = dict(block2_pt.named_parameters())[name]
 
         if w1_ft.dim() == 2:
-            w_merged.data.copy_(merge_matrix(w1_pt, w1_ft, w2_pt, w2_ft))
+            w_merged.data.copy_(merge_matrix(w1_pt, w1_ft, w2_pt, w2_ft, k=k, whitening=whitening))
+
+        elif w1_ft.dim() == 1 and 'layer_norm' not in name:
+            w_merged.data.copy_(merge_vector(w1_ft, w2_ft))
 
         elif w1_ft.dim() == 1 and 'layer_norm' in name:
             w_merged.data.copy_(w2_ft)
 
-        elif w1_ft.dim() == 1:
-            w_merged.data.copy_(merge_vector(w1_ft, w2_ft))
 
-
-def merge_clip_blocks(ft_model, layer_idx, op_matrix, op_vector):
+def merge_clip_blocks(ft_model, layer_idx, op_matrix, op_vector, k=2, whitening=True, loop=False):
 
     pt_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     pt_encoder = pt_model.vision_model.encoder
@@ -102,12 +103,17 @@ def merge_clip_blocks(ft_model, layer_idx, op_matrix, op_vector):
     merged_layer = CLIPEncoderLayer(config)
 
     merge_blocks(ft_layer1, ft_layer2, merged_layer, pt_layer1, pt_layer2, 
-                 merge_matrix=tsv_merge, merge_vector=ft_average)
+                 merge_matrix=tsv_merge, merge_vector=ft_average,
+                 k=k, whitening=whitening)
 
-    # Replace and delete
-    ft_layers[layer_idx] = merged_layer
-    del ft_layers[layer_idx + 1]
-
-    ft_model.config.vision_config.num_hidden_layers = len(ft_layers)
+    if loop==False:
+        # Replace and delete: model shrinks by one layer
+        ft_layers[layer_idx] = merged_layer
+        del ft_layers[layer_idx + 1]
+        ft_model.config.vision_config.num_hidden_layers = len(ft_layers)
+    else:
+        # Copy merged layer into both slots: model length unchanged
+        ft_layers[layer_idx] = merged_layer
+        ft_layers[layer_idx + 1] = merged_layer
 
     return ft_model
