@@ -1,0 +1,16 @@
+name: hf-cpu
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pytorch::pytorch  # CPU-only version
+  - pip
+  - pip:
+      - transformers
+      - datasets
+      - tqdm
+      - accelerate
+      - safetensors
+      - pillow
+
