@@ -90,30 +90,38 @@ def merge_clip_blocks(ft_model, layer_idx, op_matrix, op_vector, k=2, whitening=
     pt_encoder = pt_model.vision_model.encoder
     pt_layers = pt_encoder.layers
 
-    pt_layer1 = pt_layers[layer_idx]
-    pt_layer2 = pt_layers[layer_idx + 1]
-
     ft_encoder = ft_model.vision_model.encoder
     ft_layers = ft_encoder.layers
     config = ft_model.config.vision_config
 
-    ft_layer1 = ft_layers[layer_idx]
-    ft_layer2 = ft_layers[layer_idx + 1]
+    layer_idx_to_delete = []
 
-    merged_layer = CLIPEncoderLayer(config)
+    for idx in layer_idx:
 
-    merge_blocks(ft_layer1, ft_layer2, merged_layer, pt_layer1, pt_layer2, 
-                 merge_matrix=tsv_merge, merge_vector=ft_average,
-                 k=k, whitening=whitening)
+        pt_layer1 = pt_layers[idx]
+        pt_layer2 = pt_layers[idx + 1]
+
+        ft_layer1 = ft_layers[idx]
+        ft_layer2 = ft_layers[idx + 1]
+
+        merged_layer = CLIPEncoderLayer(config)
+
+        merge_blocks(ft_layer1, ft_layer2, merged_layer, pt_layer1, pt_layer2, 
+                    merge_matrix=tsv_merge, merge_vector=ft_average,
+                    k=k, whitening=whitening)
+        
+        ft_layers[idx] = merged_layer
+        layer_idx_to_delete.append(idx + 1)
+
+        if loop==True:
+            # Copy merged layer into the next slot to maintain model depth
+            ft_layers[idx + 1] = merged_layer
 
     if loop==False:
-        # Replace and delete: model shrinks by one layer
-        ft_layers[layer_idx] = merged_layer
-        del ft_layers[layer_idx + 1]
+        # Replace and delete: model shrinks by one block per pair
+        for idx in sorted(layer_idx_to_delete, reverse=True):
+            del ft_layers[idx]
         ft_model.config.vision_config.num_hidden_layers = len(ft_layers)
-    else:
-        # Copy merged layer into both slots: model length unchanged
-        ft_layers[layer_idx] = merged_layer
-        ft_layers[layer_idx + 1] = merged_layer
+
 
     return ft_model

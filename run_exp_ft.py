@@ -41,15 +41,15 @@ except json.JSONDecodeError:
             "list_of_pairs must be JSON or Python literal, e.g. [[9,1],[3,5]]"
         ) from exc
 
-def _pairs_from_integers(integers):
-    """Convert a list of integers into pairs: [8, 3] -> [(8, 9), (3, 4)]."""
+def _validate_group(integers):
+    """Check that no two consecutive integers exist in a group."""
     values = set(integers)
     for value in values:
         if value + 1 in values:
             raise ValueError(
-                "Each group must not contain two following integers (n and n+1)"
+                f"Group {list(integers)}: must not contain two consecutive integers "
+                f"(found {value} and {value + 1})"
             )
-    return [(value, value + 1) for value in integers]
 
 def _normalize_pairs(obj):
     if not isinstance(obj, list):
@@ -61,13 +61,10 @@ def _normalize_pairs(obj):
             raise ValueError("Each element in list_of_pairs must be a list/tuple of integers")
         if not group:
             raise ValueError("Each group must be non-empty")
-        
-        # Each group must contain integers that will be paired as (n, n+1)
-        if all(isinstance(x, int) for x in group):
-            pairs = _pairs_from_integers(group)
-            normalized.append(pairs)
-        else:
-            raise ValueError("Each group must contain integers to be paired as (n, n+1)")
+        if not all(isinstance(x, int) for x in group):
+            raise ValueError("Each group must contain integers only")
+        _validate_group(group)
+        normalized.append(list(group))
 
     return normalized
 
@@ -97,23 +94,25 @@ res_acc = {}
 
 
 # Creating the merged model and merging the blocks according to the specified pairs
-for pairs in list_of_pairs:
+for layer_indices in list_of_pairs:
 
-    for pair in pairs:
-        idx1, idx2 = pair
+    pairs_str = ", ".join(f"({idx},{idx+1})" for idx in layer_indices)
+    print(f"Merging pairs: {pairs_str}")
 
-        ft_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        ft_vision_model = CLIPVisionModel.from_pretrained(dataset_mapping[task_name]['model_id'])
-        ft_model.vision_model.load_state_dict(ft_vision_model.vision_model.state_dict())
+    ft_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    ft_vision_model = CLIPVisionModel.from_pretrained(dataset_mapping[task_name]['model_id'])
+    ft_model.vision_model.load_state_dict(ft_vision_model.vision_model.state_dict())
 
-        merge_clip_blocks(ft_model, layer_idx=idx1, op_matrix=tsv_merge, op_vector=ft_average, k=sv_portion, whitening=whitening, loop=loop)
-        
-        acc = evaluate_model(ft_model, data_load, 
-                     pt_processor, text_embeds, label_per_template, lab_map, 
-                     device='cpu')
+    merge_clip_blocks(ft_model, layer_idx=layer_indices, op_matrix=tsv_merge, op_vector=ft_average, k=sv_portion, whitening=whitening, loop=loop)
 
-        print(f"Accuracy on {task_name} reducing finetuned model for ({idx1}, {idx2}) blocks: {acc:.5f}")
-        res_acc[idx1] = acc
+    acc = evaluate_model(ft_model, data_load,
+                 pt_processor, text_embeds, label_per_template, lab_map,
+                 device='cpu')
+
+    single_pair_mode = all(len(g) == 1 for g in list_of_pairs)
+    config_key = layer_indices[0] if single_pair_mode else str(layer_indices)
+    print(f"Accuracy on {task_name} merging pairs {pairs_str}: {acc:.5f}")
+    res_acc[config_key] = acc
 
 if results_path is not None:
     with open(results_path, 'w') as f:
