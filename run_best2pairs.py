@@ -17,7 +17,7 @@ from pathlib import Path
 
 # ── User-configurable section ────────────────────────────────────────────────
 
-TASKS = ["MNIST"]   # tasks to evaluate
+TASKS = ["RESISC45"]   # tasks to evaluate
 
 SV_PORTION  = 2       # singular-value denominator passed to run_exp_ft.py
 WHITENING   = True    # --whitening flag
