@@ -18,3 +18,5 @@ env/
 # VSCode
 .vscode/
 
+# Models configurations
+dicts/distillation_models
