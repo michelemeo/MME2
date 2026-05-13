@@ -47,8 +47,8 @@ def forward_two_blocks_teacher(model, hidden_states, layer_idx):
 
     layers = model.vision_model.encoder.layers
 
-    hidden_states = layers[layer_idx](hidden_states, attention_mask=None, causal_attention_mask=None, output_attentions=False)[0]
-    hidden_states = layers[layer_idx + 1](hidden_states, attention_mask=None, causal_attention_mask=None, output_attentions=False)[0]
+    hidden_states = layers[layer_idx](hidden_states, attention_mask=None, causal_attention_mask=None, output_attentions=False)
+    hidden_states = layers[layer_idx + 1](hidden_states, attention_mask=None, causal_attention_mask=None, output_attentions=False)
 
     return hidden_states
 
@@ -62,7 +62,7 @@ def distillation_step(input_data, teacher, student, layer_idx):
 
     # ---- Student step ----
     x_student = forward_until_layer_vision(student, input_data, layer_idx)
-    y_student = student.vision_model.encoder.layers[layer_idx](x_student, attention_mask=None, causal_attention_mask=None, output_attentions=False)[0]
+    y_student = student.vision_model.encoder.layers[layer_idx](x_student, attention_mask=None, causal_attention_mask=None, output_attentions=False)
 
     loss = F.mse_loss(y_student, y_teacher)
 
