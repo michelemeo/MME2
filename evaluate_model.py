@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("model_path", type=str, help="Path to the saved model state dict (.pth)")
 parser.add_argument("task_name", type=str, help="Task name (e.g. MNIST)")
+parser.add_argument("--dict_path", type=str, help="Path to dictionary to save results", default=None)
 
 args = parser.parse_args()
 
@@ -60,3 +61,30 @@ acc = evaluate_model(
 )
 
 print(f"Accuracy on {task_name}: {acc:.5f}")
+
+if args.dict_path:
+    import json
+    import os
+    
+    dict_file = args.dict_path
+    
+    if os.path.exists(dict_file):
+        with open(dict_file, 'r') as f:
+            results_dict = json.load(f)
+    else:
+        results_dict = {}
+
+    save = True
+    if task_name in results_dict:
+        answer = input(f"Result for {task_name} already exists ({results_dict[task_name]}). Overwrite? (y/n): ")
+        if answer.lower() != 'y':
+            save = False
+            
+    if save:
+        results_dict[task_name] = round(acc, 5)
+        with open(dict_file, 'w') as f:
+            json.dump(results_dict, f, indent=4)
+        print(f"Saved result to {dict_file}")
+    else:
+        print("Result not saved.")
+
