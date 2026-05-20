@@ -151,12 +151,22 @@ def distill_clip_student(
     return student_model
 
 
-def save_student_model(student_model: CLIPModel, save_path: str):
+def save_student_model(student_model: CLIPModel, save_path: str, single_block: bool = False):
     """
     Save the student model's state dictionary to the specified path.
     
     Args:
         student_model: The trained student CLIP model to save
         save_path: File path to save the model (e.g., "student_model.pth")
+        single_block: If True, save only the trainable parameters (e.g. the single block)
     """
-    torch.save(student_model.state_dict(), save_path)
+    if single_block:
+        state_dict_to_save = {
+            name: param.cpu()
+            for name, param in student_model.named_parameters()
+            if param.requires_grad
+        }
+    else:
+        state_dict_to_save = student_model.state_dict()
+        
+    torch.save(state_dict_to_save, save_path)
