@@ -33,7 +33,7 @@ The repository is split between source logic, runnable scripts, setup dictionari
   * *Finetuning Logic for best merging configurations:* `distillation.py`, `distillation_colab.py`
   * *Models:* `model_utils.py`, `single_task.py`
 
-## 5) How to Run
+## How to Run
 
 ### a. Setup the environment
 You can setup the virtual environment using Conda (`virt_env.yaml`) or alternatively load from `requirements.txt`:
